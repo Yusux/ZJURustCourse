@@ -1,0 +1,24 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Upgrade Rust
+      run: rustup update
+    - name: Build, Test, Clippy all
+      run: echo -e "build_test_clippy(){ \n  while read path; do \n    printf \"Project: %s\\\n\" \"\$path\" \n    cargo build --verbose --manifest-path \"\$path\" \n    cargo test --verbose --manifest-path \"\$path\" \n    cargo clippy --verbose --manifest-path \"\$path\" \n  done\n} \nfind . -name 'Cargo.toml' | sort -u | build_test_clippy" | sh
