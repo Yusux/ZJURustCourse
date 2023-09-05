@@ -3,10 +3,10 @@ name: Rust
 on:
   push:
     branches:
-      - '**'
+      - 'hw1'
   pull_request:
     branches:
-      - '**'
+      - 'hw1'
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,4 +21,4 @@ jobs:
     - name: Upgrade Rust
       run: rustup update
     - name: Build, Test, Clippy all
-      run: echo -e "build_test_clippy(){ \n  while read path; do \n    printf \"Project: %s\\\n\" \"\$path\" \n    cargo build --verbose --manifest-path \"\$path\" \n    cargo test --verbose --manifest-path \"\$path\" \n    cargo clippy --verbose --manifest-path \"\$path\" \n  done\n} \nfind . -name 'Cargo.toml' | sort -u | build_test_clippy" | sh
+      run: sh -x ./scripts/ci.sh
