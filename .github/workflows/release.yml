@@ -13,6 +13,9 @@ env:
   PROJECT_NAME: myfind
   REPO_NAME: Yusux/ZJURustCourse
 
+permissions:
+  contents: write
+
 jobs:
   dist:
     name: Dist
