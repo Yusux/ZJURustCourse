@@ -1,6 +1,7 @@
 use std::task::Wake;
 use std::sync::{Mutex, Condvar, Arc};
 
+
 pub struct Signal {
     state: Mutex<State>,
     cond: Condvar,
@@ -43,7 +44,7 @@ impl Signal {
         }
     }
 
-    fn notify(&self) {
+    pub fn notify(&self) {
         let mut state = self.state.lock().unwrap();
         println!("notify");
         match *state {
