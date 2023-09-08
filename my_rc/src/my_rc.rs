@@ -1,9 +1,10 @@
 use core::fmt;
 use std::cell::UnsafeCell;
 use std::ops::Deref;
+use std::ptr::NonNull;
 
 pub struct Rc<T> {
-    rcbox: *mut UnsafeCell<(T, i32)>,
+    rcbox: NonNull<UnsafeCell<(T, i32)>>,
 }
 
 impl<T> Rc<T> {
@@ -11,7 +12,7 @@ impl<T> Rc<T> {
         println!("new Rc (count: 1)");
         let rc_box = Box::leak(Box::new(UnsafeCell::new((value_, 1))));
         let rc = Rc {
-            rcbox: rc_box,
+            rcbox: NonNull::new(rc_box).unwrap()
         };
         rc
     }
@@ -39,7 +40,7 @@ impl<T> Drop for Rc<T> {
         if self.ref_count() == 0 {
             unsafe {
                 println!("free Rc memory");
-                let _: Box<UnsafeCell<(T, i32)>> = Box::from_raw(self.rcbox);
+                let _: Box<UnsafeCell<(T, i32)>> = Box::from_raw(self.rcbox.as_ptr());
             }
         }
     }
@@ -80,7 +81,7 @@ trait RcBoxPtr<T> {
 impl<T> RcBoxPtr<T> for Rc<T> {
     fn inner(&self) -> &UnsafeCell<(T, i32)> {
         unsafe {
-            &(*self.rcbox)
+            self.rcbox.as_ref()
         }
     }
 }
