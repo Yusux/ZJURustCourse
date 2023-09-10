@@ -1,20 +1,20 @@
 use std::{
     cell::RefCell,
-    rc::Rc,
     task::Wake,
     sync::{Arc, Mutex, mpsc},
-    collections::VecDeque,
     future::Future,
     task::{Context, Poll, Waker},
-    marker::PhantomData,
     thread::JoinHandle,
 };
 
+use async_lock::OnceCell;
 use futures::future::BoxFuture;
 use scoped_tls::scoped_thread_local;
 
 use crate::waker::Signal;
 
+pub(crate) static GLOBAL_EXECUTOR: Executor = Executor::new_const();
+static mut THREADS_NUM: usize = 0;
 scoped_thread_local!(pub(crate) static EX: Executor);
 
 // package future and signal together as Task
@@ -35,45 +35,14 @@ impl Wake for Task {
     }
 
     fn wake_by_ref(self: &Arc<Self>) {
-        EX.with(|ex| {
-            ex.local_queue.push(self.clone());
-        });
+        let _ = GLOBAL_EXECUTOR.threads_pool().execute(self.clone());
         self.signal.notify();
-    }
-}
-
-// package a VecDeque as TaskQueue
-// use RefCell to make it mutable in a immutable struct
-struct TaskQueue {
-    queue: RefCell<VecDeque<Arc<Task>>>,
-}
-
-impl TaskQueue {
-    fn new() -> Self {
-        const DEFAULT_CAPACITY: usize = 1024;
-        TaskQueue {
-            queue: RefCell::new(VecDeque::with_capacity(DEFAULT_CAPACITY)),
-        }
-    }
-
-    fn new_with_capacity(capacity: usize) -> Self {
-        TaskQueue {
-            queue: RefCell::new(VecDeque::with_capacity(capacity)),
-        }
-    }
-
-    fn push(&self, task: Arc<Task>) {
-        self.queue.borrow_mut().push_back(task);
-    }
-
-    fn pop(&self) -> Option<Arc<Task>> {
-        self.queue.borrow_mut().pop_front()
     }
 }
 
 // implement Worker to execute Task in a thread
 struct Worker {
-    wid: usize,
+    _wid: usize,
     wthread: Option<JoinHandle<()>>,
 }
 
@@ -100,7 +69,7 @@ impl Worker {
             }
         });
 
-        Worker { wid: id, wthread: Some(thread) }
+        Worker { _wid: id, wthread: Some(thread) }
     }
 }
 
@@ -113,7 +82,7 @@ struct ThreadsPool {
 
 impl ThreadsPool {
     fn new(max_workers: usize) -> Self {
-        if (max_workers == 0) {
+        if max_workers == 0 {
             panic!("max_workers must be greater than 0");
         }
         let (sender, receiver) = mpsc::channel::<Option<Arc<Task>>>();
@@ -153,19 +122,26 @@ impl Drop for ThreadsPool {
 
 // implement Executor
 pub struct Executor {
-    local_queue: TaskQueue,
-    threads_pool: ThreadsPool,
-
-    // Disable Send and Sync
-    _marker: PhantomData<Rc<()>>,
+    threads_pool: OnceCell<ThreadsPool>,
 }
 
 impl Executor {
-    pub fn new(threads: usize) -> Self {
+    const fn new_const () -> Self {
         Executor {
-            local_queue: TaskQueue::new(),
-            threads_pool: ThreadsPool::new(threads),
-            _marker: PhantomData,
+            threads_pool: OnceCell::new(),
+        }
+    }
+
+    pub fn new(threads_num: usize) -> Self {
+        unsafe {
+            THREADS_NUM = if threads_num == 0 { num_cpus::get() } else { threads_num };
+        }
+        Self::new_const()
+    }
+
+    fn threads_pool(&self) -> &ThreadsPool {
+        unsafe {
+            self.threads_pool.get_or_init_blocking(|| ThreadsPool::new(THREADS_NUM))
         }
     }
 
@@ -175,9 +151,7 @@ impl Executor {
             future: RefCell::new(Box::pin(fut)),
             signal: Arc::new(Signal::new()),
         });
-        EX.with(|ex| {
-            ex.local_queue.push(task.clone());
-        });
+        let _ = GLOBAL_EXECUTOR.threads_pool().execute(task);
     }
 
     // block on to wait for the Future to finish
@@ -193,17 +167,6 @@ impl Executor {
                     return output;
                 }
 
-                // println!("runnable: {:?}", self.local_queue.queue.borrow().len());
-                while let Some(task) = self.local_queue.pop() {
-                    // println!("inner while let");
-                    // use ThreadsPool to execute Task
-                    self.threads_pool.execute(task);
-                }
-                // println!("runnable: {:?}", self.local_queue.queue.borrow().len());
-
-                if let Poll::Ready(output) = main_fut.as_mut().poll(&mut cx) {
-                    return output;
-                }
                 signal.wait();
             }
         })
