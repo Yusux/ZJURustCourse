@@ -20,7 +20,9 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install Nightly Rust
       run: rustup toolchain install nightly
-    - name: Use nightly Rust
+    - name: Use Nightly Rust
       run: rustup default nightly
+    - name: Install Volo
+      run: cargo install volo-cli
     - name: Build, Test, Clippy all
       run: sh -x ./.scripts/ci.sh
