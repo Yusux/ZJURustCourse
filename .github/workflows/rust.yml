@@ -18,7 +18,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Upgrade Rust
-      run: rustup update
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+    - name: Use nightly Rust
+      run: rustup default nightly
     - name: Build, Test, Clippy all
       run: sh -x ./.scripts/ci.sh
