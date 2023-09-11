@@ -18,11 +18,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
+    - name: Install Nightly Rust
+      run: rustup toolchain install nightly
     - name: Use nightly Rust
       run: rustup default nightly
     - name: Build, Test, Clippy all
