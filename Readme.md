@@ -5,7 +5,7 @@
 在本次作业中，我使用 [Volo](https://github.com/cloudwego/volo) 框架实现一个简单的 Redis 服务，并支持了以下的命令：
 
 - `PING`
-- `SET`
+- `SET(expire)`
 - `GET`
 - `DEL`
 - `SUBSCRIBE`
@@ -57,10 +57,10 @@ Hello
 ### SET
 
 ``` bash
-SET key value
+SET key value [expire time]
 ```
 
-将 `key` 的值设为 `value`。若 `key` 已存在，则覆盖原值。
+将 `key` 的值设为 `value`。若 `key` 已存在，则覆盖原值。添加 `expire time` 参数后，`key` 的生存时间为 `expire time` 秒，超过生存时间后 `key` 会被自动删除。
 
 ``` bash
 redis> SET demokey 1
@@ -71,6 +71,12 @@ redis> SET demokey 2
 OK
 redis> GET demokey
 2
+redis> SET demokey 3 10
+OK
+redis> GET demokey  # Within 10 seconds
+3
+redis> GET demokey  # After 10 seconds
+(nil)
 ```
 
 ### GET

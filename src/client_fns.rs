@@ -88,6 +88,21 @@ pub async fn set(key: &str, value: &str) -> Option<String> {
     }
 }
 
+pub async fn set_ex(key: &str, value: &str, ex: &str) -> Option<String> {
+    let req = volo_gen::volo::example::ItemRequest {
+        item: volo_gen::volo::example::Item {
+            key: key.to_string().into(),
+            value: Some(value.to_string().into()),
+            deleted_delay: Some(i64::from_str_radix(ex, 10).unwrap()),
+        },
+    };
+    let resp = CLIENT.set(req).await;
+    match resp {
+        Ok(_) => Some("OK".into()),
+        Err(e) => errresp!(e),
+    }
+}
+
 pub async fn del(key: &str) -> Option<String> {
     let req = volo_gen::volo::example::KeyRequest { 
         key: key.to_string().into(),

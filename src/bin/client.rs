@@ -1,7 +1,8 @@
 use std::env;
 use std::io::Write;
-use simple_rust_redis::{client_fns::*, printresp};
 // use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
+use simple_rust_redis::{client_fns::*, printresp};
 
 #[volo::main]
 async fn main() {
@@ -48,13 +49,25 @@ async fn main() {
                 printresp!(value);
             },
             "SET" => {
-                if input.len() != 3 {
+                if input.len() != 3 && input.len() != 4 {
                     println!("(error) ERR wrong number of arguments for command");
                     continue;
                 }
-                let key = input[1];
-                let value = input[2];
-                let value = set(key, value).await;
+                let value = match input.len() == 3 {
+                    true => {
+                        let key = input[1];
+                        let value = input[2];
+                        let value = set(key, value).await;
+                        value
+                    },
+                    false => {
+                        let key = input[1];
+                        let value = input[2];
+                        let ex = input[3];
+                        let value = set_ex(key, value, ex).await;
+                        value
+                    },
+                };
                 printresp!(value);
             },
             "DEL" => {
