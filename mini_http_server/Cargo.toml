@@ -1,0 +1,17 @@
+[package]
+name = "mini_http_server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = "0.6.20"
+lazy_static = "1.4.0"
+serde = "1.0.188"
+tokio = { version = "1.32.0", features = ["full"] }
+tracing = "0.1.37"
+
+volo-gen = { path = "../simple_mini_redis/volo-gen" }
+simple_mini_redis = { path = "../simple_mini_redis" }
+tracing-subscriber = "0.3.17"
