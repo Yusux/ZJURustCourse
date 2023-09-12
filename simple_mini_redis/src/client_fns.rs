@@ -119,6 +119,9 @@ pub async fn ping(value: &str) -> Result<Option<String>, anyhow::Error> {
 }
 
 pub async fn subscribe(channel: &str) -> Result<Option<String>, anyhow::Error> {
+    if channel == "" {
+        return Err(anyhow::Error::msg("(error) Channel cannot be empty"));
+    }
     let req = volo_gen::volo::example::KeyRequest { 
         key: channel.to_string().into(),
     };
@@ -130,6 +133,12 @@ pub async fn subscribe(channel: &str) -> Result<Option<String>, anyhow::Error> {
 }
 
 pub async fn publish(channel: &str, message: &str) -> Result<Option<String>, anyhow::Error> {
+    if channel == "" {
+        return Err(anyhow::Error::msg("(error) Channel cannot be empty"));
+    }
+    if message == "" {
+        return Err(anyhow::Error::msg("(error) Message cannot be empty"));
+    }
     let req = volo_gen::volo::example::ItemRequest {
         item: volo_gen::volo::example::Item {
             key: channel.to_string().into(),

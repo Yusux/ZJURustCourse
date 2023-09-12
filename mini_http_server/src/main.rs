@@ -25,7 +25,9 @@ async fn main() {
         .route("/ping", get(html_ping).post(handler_ping))
         .route("/set", get(html_set).post(handler_set))
         .route("/get", get(html_get).post(handler_get))
-        .route("/del", get(html_del).post(handler_del));
+        .route("/del", get(html_del).post(handler_del))
+        .route("/subscribe", get(html_subscribe).post(handler_subscribe))
+        .route("/publish", get(html_publish).post(handler_publish));
 
     let addr = "[::]:3000".parse().unwrap();
     axum::Server::bind(&addr)
@@ -64,6 +66,16 @@ async fn html_get() -> Html<&'static str> {
 async fn html_del() -> Html<&'static str> {
     tracing::info!("Requesting del.html");
     Html(include_str!("../static/html/del.html"))
+}
+
+async fn html_subscribe() -> Html<&'static str> {
+    tracing::info!("Requesting subscribe.html");
+    Html(include_str!("../static/html/subscribe.html"))
+}
+
+async fn html_publish() -> Html<&'static str> {
+    tracing::info!("Requesting publish.html");
+    Html(include_str!("../static/html/publish.html"))
 }
 
 async fn handler_ping(Form(query): Form<ItemQuery>) -> Html<String> {
@@ -161,6 +173,45 @@ async fn handler_del(Form(query): Form<ItemQuery>) -> Html<String> {
             let result_mesaage = e.to_string();
             tracing::error!(result_mesaage);
             Html(htmlgen!("Del", result_mesaage))
+        },
+    }
+}
+
+async fn handler_subscribe(Form(query): Form<ItemQuery>) -> Html<String> {
+    tracing::debug!("{:?}", query);
+    let key = query.key.clone();
+    tracing::debug!("Calling subscribe with key: {:?}", key.as_ref());
+    let result = client_fns::subscribe(key.as_ref().unwrap().as_str()).await;
+    match result {
+        Ok(_) => {
+            let result_mesaage = format!("Subscribe key {}. Result: {}", key.as_ref().unwrap(), result.unwrap().unwrap());
+            tracing::info!(result_mesaage);
+            Html(htmlgen!("Subscribe", result_mesaage))
+        },
+        Err(e) => {
+            let result_mesaage = e.to_string();
+            tracing::error!(result_mesaage);
+            Html(htmlgen!("Subscribe", result_mesaage))
+        },
+    }
+}
+
+async fn handler_publish(Form(query): Form<ItemQuery>) -> Html<String> {
+    tracing::debug!("{:?}", query);
+    let key = query.key.clone();
+    let value = query.value.clone();
+    tracing::debug!("Calling publish with key: {:?}, value: {:?}", key.as_ref(), value.as_ref());
+    let result = client_fns::publish(key.as_ref().unwrap().as_str(), value.as_ref().unwrap().as_str()).await;
+    match result {
+        Ok(_) => {
+            let result_mesaage = format!("Publish key {} with value {}. Result: {}", key.as_ref().unwrap(), value.as_ref().unwrap(), result.unwrap().unwrap());
+            tracing::info!(result_mesaage);
+            Html(htmlgen!("Publish", result_mesaage))
+        },
+        Err(e) => {
+            let result_mesaage = e.to_string();
+            tracing::error!(result_mesaage);
+            Html(htmlgen!("Publish", result_mesaage))
         },
     }
 }
