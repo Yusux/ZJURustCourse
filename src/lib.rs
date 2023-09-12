@@ -1,8 +1,12 @@
 #![feature(impl_trait_in_assoc_type)]
 
-use std::{collections::{HashMap, HashSet}, sync::{Arc, RwLock}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock}
+};
 use anyhow::{Error, anyhow};
 use volo_gen::volo::example::{Item, self};
+use tokio::task::JoinHandle;
 
 pub mod client_fns;
 
@@ -84,7 +88,7 @@ impl<S> volo::Layer<S> for FilterLayer {
 // Hashmap for storing items
 struct ItemDict {
     dict: Arc<RwLock<HashMap<String, String>>>,
-    to_delay_del: Arc<RwLock<HashSet<String>>>,
+    to_delay_del: Arc<RwLock<HashMap<String, JoinHandle<()>>>>,
 }
 
 impl ItemDict {
@@ -92,7 +96,7 @@ impl ItemDict {
     fn new() -> Self {
         Self {
             dict: Arc::new(RwLock::new(HashMap::new())),
-            to_delay_del: Arc::new(RwLock::new(HashSet::new())),
+            to_delay_del: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -106,6 +110,13 @@ impl ItemDict {
 
     // Set the value of a key
     fn set(&self, key: &str, value: &str) -> Option<String> {
+        // stop the delay delete task
+        match self.to_delay_del.read().unwrap().get(key) {
+            Some(thread) => {
+                thread.abort();
+            },
+            None => (),
+        };
         self.to_delay_del.write().unwrap().remove(key);
         self.dict
             .write()
@@ -115,25 +126,38 @@ impl ItemDict {
 
     // Delete a key
     fn del(&self, key: &str) -> Option<String> {
+        // stop the delay delete task
+        match self.to_delay_del.read().unwrap().get(key) {
+            Some(thread) => {
+                thread.abort();
+            },
+            None => (),
+        };
         self.to_delay_del.write().unwrap().remove(key);
         self.dict.write().unwrap().remove(key)
     }
 
     // Delay delete a key
     async fn delay_del(&self, key: &str, delay: u64) -> Option<String> {
+        // stop the previous delay delete task
+        match self.to_delay_del.read().unwrap().get(key) {
+            Some(thread) => {
+                thread.abort();
+            },
+            None => (),
+        };
+        self.to_delay_del.write().unwrap().remove(key);
         let dict = self.dict.clone();
         let to_delay_del = self.to_delay_del.clone();
-        let key = key.to_string();
+        let key_ = key.to_string();
         let delay = delay.clone();
-        tokio::spawn(async move {
-            to_delay_del.write().unwrap().insert(key.clone());
+        let thread = tokio::spawn(async move {
             tokio::time::sleep(tokio::time::Duration::from_secs(delay)).await;
-            let can_del = to_delay_del.write().unwrap().remove(&key);
-            if can_del {
-                dict.write().unwrap().remove(&key);
-                tracing::info!("{} is deleted", key);
-            }
+            dict.write().unwrap().remove(&key_);
+            tracing::info!("{} is deleted", key_);
+            let _ = to_delay_del.write().unwrap().remove(&key_).is_some();
         });
+        self.to_delay_del.write().unwrap().insert(key.to_string(), thread);
         None
     }
 }
