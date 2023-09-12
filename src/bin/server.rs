@@ -2,7 +2,7 @@
 
 use std::net::SocketAddr;
 
-use simple_rust_redis::{S, FilterLayer};
+use simple_rust_redis::S;
 
 #[volo::main]
 async fn main() {
@@ -10,7 +10,6 @@ async fn main() {
     let addr = volo::net::Address::from(addr);
 
     volo_gen::volo::example::ItemServiceServer::new(S::new())
-        .layer_front(FilterLayer)
         .run(addr)
         .await
         .unwrap();

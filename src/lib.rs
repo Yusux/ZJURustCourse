@@ -1,8 +1,8 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use std::{cell::RefCell, collections::HashMap, sync::{Arc, RwLock}};
-use anyhow::Error;
-use volo_gen::volo::example::Item;
+use anyhow::{Error, anyhow};
+use volo_gen::volo::example::{Item, self};
 
 pub mod client_fns;
 
@@ -27,24 +27,40 @@ impl S {
 pub struct FilterService<S>(S);
 
 #[volo::service]
-impl<Cx, Req, S> volo::Service<Cx, Req> for FilterService<S>
+impl<Cx, S> volo::Service<Cx, example::ItemServiceRequestSend> for FilterService<S>
 where
-    Req: std::fmt::Debug + Send + Clone + 'static,
-    S: Send + 'static + volo::Service<Cx, Req> + Sync,
+    S: Send + 'static + volo::Service<Cx, example::ItemServiceRequestSend> + Sync,
     S::Response: std::fmt::Debug,
-    S::Error: std::fmt::Debug + From<Error>,
+    S::Error: std::fmt::Debug,
+    anyhow::Error: Into<S::Error>,
     Cx: Send + 'static,
 {
-    async fn call(&self, cx: &mut Cx, req: Req) -> Result<S::Response, S::Error> {
+    async fn call(&self, cx: &mut Cx, req: example::ItemServiceRequestSend) -> Result<S::Response, S::Error> {
         let now = std::time::Instant::now();
         tracing::debug!("Received request {:?}", &req);
-        let req_fmt = format!("{:?}", &req);
-        // check if the request contains "关注嘉然谢谢喵" which is filtered
-        let is_filter = req_fmt.contains("关注嘉然谢谢喵");
-        if is_filter {
-            tracing::error!("Filtering request {:?}", &req);
-            // return Error
-            return Err(S::Error::from(Error::msg("FILTERED")));
+        let to_check = match req.clone() {
+            example::ItemServiceRequestSend::Get(example::ItemServiceGetArgsSend{req}) => {
+                req.key
+            },
+            example::ItemServiceRequestSend::Set(example::ItemServiceSetArgsSend{req}) => {
+                getfromitem!(req.item)
+            },
+            example::ItemServiceRequestSend::Del(example::ItemServiceDelArgsSend{req}) => {
+                req.key
+            },
+            example::ItemServiceRequestSend::Ping(example::ItemServicePingArgsSend{req}) => {
+                getfromitem!(req.item)
+            },
+            example::ItemServiceRequestSend::Subscribe(example::ItemServiceSubscribeArgsSend{req}) => {
+                req.key
+            },
+            example::ItemServiceRequestSend::Publish(example::ItemServicePublishArgsSend{req}) => {
+                getfromitem!(req.item)
+            },
+        };
+        tracing::debug!("Checking {}", to_check);
+        if to_check.contains("关注嘉然谢谢喵") {
+            return Err(anyhow!("FILTERED").into());
         }
         let resp = self.0.call(cx, req).await;
         tracing::debug!("Sent response {:?}", &resp);
@@ -337,4 +353,14 @@ impl volo_gen::volo::example::ItemService for S {
             None => Err(::volo_thrift::AnyhowError::from(Error::msg("PUBLISH GET ERROR"))),
         }
     }
+}
+
+#[macro_export]
+macro_rules! getfromitem {
+    ($item:expr) => {
+        match $item.value {
+            Some(value) => format!("{} {}", $item.key, value).into(),
+            None => $item.key,
+        }
+    };
 }

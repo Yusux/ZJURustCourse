@@ -1,9 +1,14 @@
 use std::env;
 use std::io::Write;
 use simple_rust_redis::{client_fns::*, printresp};
+// use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[volo::main]
 async fn main() {
+    // tracing_subscriber::registry()
+    //     .with(fmt::layer())
+    //     .init();
+
     let args: Vec<String> = env::args().collect();
 
     // Check args
@@ -27,7 +32,10 @@ async fn main() {
                                     .split(" ")
                                     .filter(|s| !s.is_empty())
                                     .collect();
-
+        // Check input is not empty
+        if input.is_empty() {
+            continue;
+        }
         // Match input to command
         match input[0].to_uppercase().as_str() {
             "GET" => {
