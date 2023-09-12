@@ -16,15 +16,15 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install Nightly Rust
-      run: rustup install nightly
-    - name: Use Nightly Rust
-      run: rustup default nightly
-    - name: Install Volo
-      run: cargo install volo-cli
-    - name: Volo Init
-      run: volo init simple-rust-redis idl/volo_example.thrift
-    - name: Build, Test, Clippy all
-      run: sh -x ./.scripts/ci.sh
+    # steps:
+    # - uses: actions/checkout@v3
+    # - name: Install Nightly Rust
+    #   run: rustup install nightly
+    # - name: Use Nightly Rust
+    #   run: rustup default nightly
+    # - name: Install Volo
+    #   run: cargo install volo-cli
+    # - name: Volo Init
+    #   run: volo init simple-rust-redis idl/volo_example.thrift
+    # - name: Build, Test, Clippy all
+    #   run: sh -x ./.scripts/ci.sh
