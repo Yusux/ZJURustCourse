@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use pilota::FastStr;
 use std::net::{SocketAddr, IpAddr};
 use crate::{FilterLayer, errresp, getresp};
 
@@ -27,11 +28,27 @@ pub fn init_client(host: &str, port: u16) {
     }
 }
 
+pub async fn ping(value: &str) -> Result<Option<String>, anyhow::Error> {
+    let to_ping = match value {
+        "" => None,
+        _ => Some(FastStr::from(value.to_string())),
+    };
+    let req = volo_gen::volo::example::ItemRequest {
+        item: volo_gen::volo::example::Item {
+            key: "ping".to_string().into(),
+            value: to_ping,
+            deleted_delay: None,
+        },
+    };
+    let resp = CLIENT.ping(req).await;
+    match resp {
+        Ok(info) => getresp!(info.item.value),
+        Err(e) => errresp!(e),
+    }
+}
+
 // Client functions
 pub async fn get(key: &str) -> Result<Option<String>, anyhow::Error> {
-    if key == "" {
-        return Err(anyhow::Error::msg("(error) Key cannot be empty"));
-    }
     let req = volo_gen::volo::example::KeyRequest { 
         key: key.to_string().into(),
     };
@@ -43,12 +60,6 @@ pub async fn get(key: &str) -> Result<Option<String>, anyhow::Error> {
 }
 
 pub async fn set(key: &str, value: &str) -> Result<Option<String>, anyhow::Error> {
-    if key == "" {
-        return Err(anyhow::Error::msg("(error) Key cannot be empty"));
-    }
-    if value == "" {
-        return Err(anyhow::Error::msg("(error) Value cannot be empty"));
-    }
     let req = volo_gen::volo::example::ItemRequest {
         item: volo_gen::volo::example::Item {
             key: key.to_string().into(),
@@ -64,16 +75,6 @@ pub async fn set(key: &str, value: &str) -> Result<Option<String>, anyhow::Error
 }
 
 pub async fn set_ex(key: &str, value: &str, ex: &str) -> Result<Option<String>, anyhow::Error> {
-    if key == "" {
-        return Err(anyhow::Error::msg("(error) Key cannot be empty"));
-    }
-    if value == "" {
-        return Err(anyhow::Error::msg("(error) Value cannot be empty"));
-    }
-    // check if ex is a number
-    if ex.parse::<i64>().is_err() {
-        return Err(anyhow::Error::msg("(error) Expire time must be a number"));
-    }
     let req = volo_gen::volo::example::ItemRequest {
         item: volo_gen::volo::example::Item {
             key: key.to_string().into(),
@@ -99,29 +100,7 @@ pub async fn del(key: &str) -> Result<Option<String>, anyhow::Error> {
     }
 }
 
-pub async fn ping(value: &str) -> Result<Option<String>, anyhow::Error> {
-    let to_ping = match value {
-        "" => None,
-        _ => Some(value),
-    };
-    let req = volo_gen::volo::example::ItemRequest {
-        item: volo_gen::volo::example::Item {
-            key: "ping".to_string().into(),
-            value: to_ping.map(|s| s.to_string().into()),
-            deleted_delay: None,
-        },
-    };
-    let resp = CLIENT.ping(req).await;
-    match resp {
-        Ok(info) => getresp!(info.item.value),
-        Err(e) => errresp!(e),
-    }
-}
-
 pub async fn subscribe(channel: &str) -> Result<Option<String>, anyhow::Error> {
-    if channel == "" {
-        return Err(anyhow::Error::msg("(error) Channel cannot be empty"));
-    }
     let req = volo_gen::volo::example::KeyRequest { 
         key: channel.to_string().into(),
     };
@@ -133,12 +112,6 @@ pub async fn subscribe(channel: &str) -> Result<Option<String>, anyhow::Error> {
 }
 
 pub async fn publish(channel: &str, message: &str) -> Result<Option<String>, anyhow::Error> {
-    if channel == "" {
-        return Err(anyhow::Error::msg("(error) Channel cannot be empty"));
-    }
-    if message == "" {
-        return Err(anyhow::Error::msg("(error) Message cannot be empty"));
-    }
     let req = volo_gen::volo::example::ItemRequest {
         item: volo_gen::volo::example::Item {
             key: channel.to_string().into(),
